@@ -1,9 +1,9 @@
-# p4rr0t bypass?
+# a pigeon that bypasses!?
 ![P4rr0t](parrot.png)
 A multi exploit process to self-kill management softwares
 
 # How it works
-Assuming I don't want to break anything: if I had created a simple C# application to kill a process, it would have required administrator privileges. With this method, however, we use an external program to inject a DLL that tricks Windows into thinking the program itself wants to terminate. As a first approach, let's try creating an intentional bug that uses int pointers (*) to crash the program. If this fails, it might be due to insufficient privileges. In this case, a second method involves having the program close itself from within, without triggering any exit errors.
+Assuming I don't want to break anything: if I had created a simple C# application to kill a process, it would have required administrator privileges. With this method, however, we use an external program to inject a DLL that tricks Windows into thinking the program itself wants to terminate. As a first approach, let's try creating an intentional bug that uses int pointers (*) to crash the program. If this fails, it might be due to insufficient privileges. In this case, a second method involves having the program close itself from within, without triggering any exit errors. If this method fails, the program start a receiver and if you connect the sender with keyboard/mouse on an other computer or Arduino, Windows will automatically accept these input and move the mouse or keyboard for you. 
 
 # Exploits
 First method: *Normal Process kill* - 85cs/Itelcan3 (aka. @MasterSharp3210)
