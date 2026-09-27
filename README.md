@@ -13,7 +13,7 @@ Second method: *DLL INJECTION with intention bug and internal exit* - Itelcan3/F
 Third method: *Piccione - input bypass* - FranciPlay (aka. @franciplay)
 
 # How to compile
-To compile extra-recipe you have to manually compile dll project and piccione project as release. For the main you have to write this command in Developer Powershell for Visual Studio:
+To compile extra-recipe you have to manually compile dll project and piccione project as release (**IMPORTANT:** To compile "piccione" you have to add the library *libdatachannel* from nuget). For the main you have to write this command in Developer Powershell for Visual Studio:
 ```cl main.c process_kill.c dll_inject.c utils.c user32.lib shell32.lib advapi32.lib /link /subsystem:windows```
 
 # Note
