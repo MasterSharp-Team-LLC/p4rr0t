@@ -140,12 +140,22 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="piccione.cpp" />
-    <ClCompile Include="winmain_shim.cpp" />
+    <ClCompile Include="winmain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="protocol.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="packages\libdatachannel.0.22.6\build\native\libdatachannel.targets" Condition="Exists('packages\libdatachannel.0.22.6\build\native\libdatachannel.targets')" />
   </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>Questo progetto fa riferimento a uno o più pacchetti NuGet che non sono presenti in questo computer. Usare lo strumento di ripristino dei pacchetti NuGet per scaricarli. Per altre informazioni, vedere http://go.microsoft.com/fwlink/?LinkID=322105. Il file mancante è {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('packages\libdatachannel.0.22.6\build\native\libdatachannel.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\libdatachannel.0.22.6\build\native\libdatachannel.targets'))" />
+  </Target>
 </Project>

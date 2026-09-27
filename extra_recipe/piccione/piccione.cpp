@@ -1,20 +1,20 @@
 #define WIN32_LEAN_AND_MEAN
-#define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include <windows.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
 #include <wininet.h>
 #include <iostream>
 #include <unordered_map>
 #include <string>
 #include <cstdint>
+#include <thread>
+#include <chrono>
+
+#include <rtc/rtc.hpp>
 
 #include "protocol.h"
 
-#pragma comment(lib, "ws2_32.lib")
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "user32.lib")
-#pragma comment(linker, "/subsystem:console")
+#pragma comment(linker, "/subsystem:windows")
 
 #define STATIC_PAIR_CODE "piccione"
 #define FIREBASE_DB_HOST "piccione-3c3f6-default-rtdb.europe-west1.firebasedatabase.app"
@@ -24,11 +24,9 @@ struct KeyMapping {
     bool isExtended;
 };
 
-// Map Linux EVDEV KEY_* codes to Windows Scan Codes + Extended flag
 static std::unordered_map<uint16_t, KeyMapping> g_keyMap;
 
 void init_keymap() {
-    // Standard keys
     g_keyMap[1] = { 0x01, false }; // ESC
     g_keyMap[2] = { 0x02, false }; // 1
     g_keyMap[3] = { 0x03, false }; // 2
@@ -119,82 +117,57 @@ void init_keymap() {
     g_keyMap[126] = { 0x5C, true }; // RIGHTMETA (Win)
 }
 
-std::string GetLocalIP() {
-    SOCKET s = socket(AF_INET, SOCK_DGRAM, 0);
-    if (s == INVALID_SOCKET) return "127.0.0.1";
-    sockaddr_in sa{};
-    sa.sin_family = AF_INET;
-    sa.sin_addr.s_addr = inet_addr("8.8.8.8");
-    sa.sin_port = htons(80);
-    if (connect(s, (sockaddr*)&sa, sizeof(sa)) == SOCKET_ERROR) {
-        closesocket(s);
-        return "127.0.0.1";
-    }
-    sockaddr_in name{};
-    int namelen = sizeof(name);
-    getsockname(s, (sockaddr*)&name, &namelen);
-    char ipStr[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &name.sin_addr, ipStr, sizeof(ipStr));
-    closesocket(s);
-    return std::string(ipStr);
-}
-
-std::string UrlEncode(const std::string& str) {
-    std::string strTemp = "";
-    size_t length = str.length();
-    for (size_t i = 0; i < length; i++) {
-        if (isalnum((unsigned char)str[i]) || str[i] == '-' || str[i] == '_' || str[i] == '.' || str[i] == '~')
-            strTemp += str[i];
-        else if (str[i] == ' ')
-            strTemp += "%20";
-        else {
-            char buf[4];
-            snprintf(buf, sizeof(buf), "%%%02X", (unsigned char)str[i]);
-            strTemp += buf;
-        }
-    }
-    return strTemp;
-}
-
-bool RegisterFirebaseSession(const std::string& pairCode, const std::string& localIp, int port) {
-    if (std::string(FIREBASE_DB_HOST).empty()) return false;
-
-    HINTERNET hNet = InternetOpenA("PiccioneReceiver", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+bool FirebasePut(const std::string& path, const std::string& jsonPayload) {
+    HINTERNET hNet = InternetOpenA("PiccioneWebRTC", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
     if (!hNet) return false;
-
     HINTERNET hConnect = InternetConnectA(hNet, FIREBASE_DB_HOST, INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
-    if (!hConnect) {
-        InternetCloseHandle(hNet);
-        return false;
-    }
+    if (!hConnect) { InternetCloseHandle(hNet); return false; }
 
-    std::string path = "/sessions/" + UrlEncode(pairCode) + ".json";
     HINTERNET hRequest = HttpOpenRequestA(hConnect, "PUT", path.c_str(), NULL, NULL, NULL, INTERNET_FLAG_SECURE | INTERNET_FLAG_RELOAD, 0);
-    if (!hRequest) {
-        InternetCloseHandle(hConnect);
-        InternetCloseHandle(hNet);
-        return false;
-    }
-
-    char hostname[256];
-    DWORD size = sizeof(hostname);
-    GetComputerNameA(hostname, &size);
-
-    char jsonBuf[512];
-    snprintf(jsonBuf, sizeof(jsonBuf), "{\"ip\":\"%s\",\"port\":%d,\"hostname\":\"%s\",\"status\":\"online\"}", localIp.c_str(), port, hostname);
+    if (!hRequest) { InternetCloseHandle(hConnect); InternetCloseHandle(hNet); return false; }
 
     std::string headers = "Content-Type: application/json\r\n";
-    BOOL sent = HttpSendRequestA(hRequest, headers.c_str(), (DWORD)headers.length(), (LPVOID)jsonBuf, (DWORD)strlen(jsonBuf));
-
-    DWORD statusCode = 0;
-    DWORD statusSize = sizeof(statusCode);
-    HttpQueryInfoA(hRequest, HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER, &statusCode, &statusSize, NULL);
+    BOOL sent = HttpSendRequestA(hRequest, headers.c_str(), (DWORD)headers.length(), (LPVOID)jsonPayload.c_str(), (DWORD)jsonPayload.length());
 
     InternetCloseHandle(hRequest);
     InternetCloseHandle(hConnect);
     InternetCloseHandle(hNet);
+    return sent;
+}
 
-    return sent && (statusCode == 200);
+std::string FirebaseGet(const std::string& path) {
+    HINTERNET hNet = InternetOpenA("PiccioneWebRTC", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+    if (!hNet) return "";
+    HINTERNET hConnect = InternetConnectA(hNet, FIREBASE_DB_HOST, INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+    if (!hConnect) { InternetCloseHandle(hNet); return ""; }
+
+    HINTERNET hRequest = HttpOpenRequestA(hConnect, "GET", path.c_str(), NULL, NULL, NULL, INTERNET_FLAG_SECURE | INTERNET_FLAG_RELOAD, 0);
+    if (!hRequest) { InternetCloseHandle(hConnect); InternetCloseHandle(hNet); return ""; }
+
+    std::string response = "";
+    if (HttpSendRequestA(hRequest, NULL, 0, NULL, 0)) {
+        char buffer[1024];
+        DWORD bytesRead = 0;
+        while (InternetReadFile(hRequest, buffer, sizeof(buffer) - 1, &bytesRead) && bytesRead > 0) {
+            buffer[bytesRead] = '\0';
+            response += buffer;
+        }
+    }
+
+    InternetCloseHandle(hRequest);
+    InternetCloseHandle(hConnect);
+    InternetCloseHandle(hNet);
+    return response;
+}
+
+std::string ExtractJsonField(const std::string& json, const std::string& field) {
+    std::string key = "\"" + field + "\":\"";
+    size_t start = json.find(key);
+    if (start == std::string::npos) return "";
+    start += key.length();
+    size_t end = json.find("\"", start);
+    if (end == std::string::npos) return "";
+    return json.substr(start, end - start);
 }
 
 void process_packet(const PiccionePacket& pkt) {
@@ -204,29 +177,14 @@ void process_packet(const PiccionePacket& pkt) {
 
     if (pkt.type == EVENT_TYPE_KEYBOARD) {
         auto it = g_keyMap.find(pkt.code);
-        WORD scanCode = 0;
-        bool isExtended = false;
-
-        if (it != g_keyMap.end()) {
-            scanCode = it->second.scanCode;
-            isExtended = it->second.isExtended;
-        }
-        else {
-            scanCode = static_cast<WORD>(pkt.code);
-        }
+        WORD scanCode = (it != g_keyMap.end()) ? it->second.scanCode : static_cast<WORD>(pkt.code);
+        bool isExtended = (it != g_keyMap.end()) ? it->second.isExtended : false;
 
         input.type = INPUT_KEYBOARD;
         input.ki.wScan = scanCode;
         input.ki.dwFlags = KEYEVENTF_SCANCODE;
-
-        if (isExtended) {
-            input.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
-        }
-
-        if (pkt.state == 0) {
-            // Key Up
-            input.ki.dwFlags |= KEYEVENTF_KEYUP;
-        }
+        if (isExtended) input.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
+        if (pkt.state == 0) input.ki.dwFlags |= KEYEVENTF_KEYUP;
 
         SendInput(1, &input, sizeof(INPUT));
     }
@@ -240,17 +198,10 @@ void process_packet(const PiccionePacket& pkt) {
     else if (pkt.type == EVENT_TYPE_MOUSE_BUTTON) {
         input.type = INPUT_MOUSE;
         bool isDown = (pkt.state == 1);
-
         switch (pkt.code) {
-        case MOUSE_BTN_LEFT:
-            input.mi.dwFlags = isDown ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP;
-            break;
-        case MOUSE_BTN_RIGHT:
-            input.mi.dwFlags = isDown ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP;
-            break;
-        case MOUSE_BTN_MIDDLE:
-            input.mi.dwFlags = isDown ? MOUSEEVENTF_MIDDLEDOWN : MOUSEEVENTF_MIDDLEUP;
-            break;
+        case MOUSE_BTN_LEFT: input.mi.dwFlags = isDown ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP; break;
+        case MOUSE_BTN_RIGHT: input.mi.dwFlags = isDown ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP; break;
+        case MOUSE_BTN_MIDDLE: input.mi.dwFlags = isDown ? MOUSEEVENTF_MIDDLEDOWN : MOUSEEVENTF_MIDDLEUP; break;
         case MOUSE_BTN_SIDE:
             input.mi.dwFlags = isDown ? MOUSEEVENTF_XDOWN : MOUSEEVENTF_XUP;
             input.mi.mouseData = XBUTTON1;
@@ -259,8 +210,7 @@ void process_packet(const PiccionePacket& pkt) {
             input.mi.dwFlags = isDown ? MOUSEEVENTF_XDOWN : MOUSEEVENTF_XUP;
             input.mi.mouseData = XBUTTON2;
             break;
-        default:
-            return;
+        default: return;
         }
         SendInput(1, &input, sizeof(INPUT));
     }
@@ -280,112 +230,91 @@ void process_packet(const PiccionePacket& pkt) {
     }
 }
 
-class Receiver {
-public:
-    Receiver(const std::string& pairCode, int port)
-        : m_pairCode(pairCode), m_port(port), m_sockfd(INVALID_SOCKET), m_connected(false) {}
+int main(int argc, char* argv[]) {
+    std::cout << "===========================================\n";
+    std::cout << "  Piccione C++ WebRTC Receiver (Windows)\n";
+    std::cout << "===========================================\n";
 
-    ~Receiver() {
-        if (m_sockfd != INVALID_SOCKET) closesocket(m_sockfd);
-        WSACleanup();
-    }
+    init_keymap();
 
-    bool Initialize() {
-        WSADATA wsaData;
-        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-            std::cerr << "[-] WSAStartup failed!" << std::endl;
-            return false;
-        }
+    std::string pairCode = (argc > 1) ? argv[1] : STATIC_PAIR_CODE;
+    std::cout << "[*] Pair Code: " << pairCode << "\n";
 
-        init_keymap();
-        m_localIp = GetLocalIP();
+    rtc::Configuration config;
+    config.iceServers.emplace_back("stun:stun.l.google.com:19302");
 
-        std::cout << "===========================================\n";
-        std::cout << "  Piccione C++ Receiver (Windows 10/11)\n";
-        std::cout << "===========================================\n";
-        std::cout << "[*] Local IP: " << m_localIp << ":" << m_port << "\n";
-        std::cout << "[*] Registering Pair Code '" << m_pairCode << "' with Firebase...\n";
+    auto pc = std::make_shared<rtc::PeerConnection>(config);
 
-        if (RegisterFirebaseSession(m_pairCode, m_localIp, m_port)) {
-            std::cout << "[+] Successfully registered in Firebase!\n";
-            std::cout << "[+] STATIC PAIR CODE: " << m_pairCode << "\n";
-        }
-        else {
-            std::cout << "[!] Firebase Registration warning (check database rules or host).\n";
-        }
+    pc->onStateChange([](rtc::PeerConnection::State state) {
+        std::cout << "[*] WebRTC State: " << state << std::endl;
+        });
 
-        m_sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-        if (m_sockfd == INVALID_SOCKET) {
-            std::cerr << "[-] Socket creation failed: " << WSAGetLastError() << std::endl;
-            return false;
-        }
+    auto dc = pc->createDataChannel("events");
 
-        int opt = 1;
-        setsockopt(m_sockfd, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt));
+    dc->onOpen([&]() {
+        std::cout << "\n[+] WebRTC DataChannel Opened! Connected to Linux Sender!\n";
+        });
 
-        sockaddr_in serverAddr{};
-        serverAddr.sin_family = AF_INET;
-        serverAddr.sin_addr.s_addr = INADDR_ANY;
-        serverAddr.sin_port = htons(m_port);
-
-        if (bind(m_sockfd, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-            std::cerr << "[-] Bind failed on port " << m_port << " (Error: " << WSAGetLastError() << ")\n";
-            std::cerr << "    Another instance of Piccione Receiver or python script is already using port 9876.\n";
-            closesocket(m_sockfd);
-            return false;
-        }
-
-        std::cout << "\n[+] C++ Receiver listening for UDP packets on port " << m_port << "...\n";
-        std::cout << "[*] Press Ctrl+C to exit.\n" << std::endl;
-        return true;
-    }
-
-    void Run() {
-        PiccionePacket pkt{};
-        sockaddr_in clientAddr{};
-        char clientIp[INET_ADDRSTRLEN];
-
-        while (true) {
-            int clientAddrLen = sizeof(clientAddr);
-            int bytesRecv = recvfrom(m_sockfd, (char*)&pkt, sizeof(pkt), 0, (sockaddr*)&clientAddr, &clientAddrLen);
-            if (bytesRecv == sizeof(PiccionePacket)) {
-                if (!m_connected) {
-                    inet_ntop(AF_INET, &clientAddr.sin_addr, clientIp, sizeof(clientIp));
-                    std::cout << "[+] Connected to Sender at " << clientIp << ":" << ntohs(clientAddr.sin_port) << std::endl;
-                    m_connected = true;
-                }
+    dc->onMessage([&](std::variant<rtc::binary, rtc::string> message) {
+        if (std::holds_alternative<rtc::binary>(message)) {
+            auto data = std::get<rtc::binary>(message);
+            if (data.size() == sizeof(PiccionePacket)) {
+                PiccionePacket pkt;
+                std::memcpy(&pkt, data.data(), sizeof(PiccionePacket));
                 process_packet(pkt);
             }
         }
-    }
+        });
 
-private:
-    std::string m_pairCode;
-    int m_port;
-    std::string m_localIp;
-    SOCKET m_sockfd;
-    bool m_connected;
-};
+    pc->onLocalDescription([&](rtc::Description description) {
+        std::string sdpStr = std::string(description);
 
-int main(int argc, char* argv[]) {
-    HWND hwnd = GetConsoleWindow();
-    if (hwnd != NULL) {
-        ShowWindow(hwnd, SW_HIDE);
-    }
-
-    int port = PICCIONE_DEFAULT_PORT;
-    if (argc > 1) {
-        try {
-            port = std::stoi(argv[1]);
+        std::string escapedSdp = "";
+        for (char c : sdpStr) {
+            if (c == '\r') continue;
+            if (c == '\n') escapedSdp += "\\n";
+            else escapedSdp += c;
         }
-        catch (...) {}
+
+        std::string payload = "{\"sdp\":\"" + escapedSdp + "\",\"type\":\"offer\"}";
+        std::cout << "[*] Sending WebRTC Offer to Firebase for session '" << pairCode << "'...\n";
+
+        if (FirebasePut("/webrtc/" + pairCode + "/offer.json", payload)) {
+            std::cout << "[+] Offer uploaded successfully to Firebase!\n";
+        }
+        else {
+            std::cerr << "[-] Error while uploading the Offer to Firebase.\n";
+        }
+        });
+
+    pc->setLocalDescription();
+
+    std::cout << "[*] Waiting for the WebRTC Answer from the Sender...\n";
+    std::string answerSdp = "";
+    while (answerSdp.empty()) {
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        std::string response = FirebaseGet("/webrtc/" + pairCode + "/answer.json");
+        if (!response.empty() && response != "null") {
+            answerSdp = ExtractJsonField(response, "sdp");
+        }
     }
 
-    Receiver receiver(STATIC_PAIR_CODE, port);
-    if (!receiver.Initialize()) {
-        system("pause");
-        return 1;
+    std::string unescapedAnswer = "";
+    for (size_t i = 0; i < answerSdp.length(); ++i) {
+        if (answerSdp[i] == '\\' && i + 1 < answerSdp.length() && answerSdp[i + 1] == 'n') {
+            unescapedAnswer += "\r\n";
+            i++;
+        }
+        else {
+            unescapedAnswer += answerSdp[i];
+        }
     }
-    receiver.Run();
+
+    std::cout << "[+] Answer received from Firebase! Configuring Remote Description...\n";
+    pc->setRemoteDescription(rtc::Description(unescapedAnswer, "answer"));
+
+    std::cout << "[*] Streaming started. Press ENTER to exit.\n";
+    std::cin.get();
+
     return 0;
 }
