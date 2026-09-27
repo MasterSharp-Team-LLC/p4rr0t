@@ -14,8 +14,7 @@
 #pragma comment(lib, "ws2_32.lib")
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "user32.lib")
-#pragma comment(linker, "/subsystem:windows")
-#pragma comment(linker, "/ENTRY:WinMainCRTStartup")
+#pragma comment(linker, "/subsystem:console")
 
 #define STATIC_PAIR_CODE "piccione"
 #define FIREBASE_DB_HOST "piccione-3c3f6-default-rtdb.europe-west1.firebasedatabase.app"
