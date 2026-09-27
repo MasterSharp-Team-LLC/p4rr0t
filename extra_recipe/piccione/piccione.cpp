@@ -289,6 +289,12 @@ int main(int argc, char* argv[]) {
         catch (...) {}
     }
 
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        std::cerr << "[-] WSAStartup failed!" << std::endl;
+        return 1;
+    }
+
     std::cout << "===========================================\n";
     std::cout << "  Piccione C++ Receiver (Windows 10/11)\n";
     std::cout << "===========================================\n";
@@ -307,12 +313,6 @@ int main(int argc, char* argv[]) {
     }
     else {
         std::cout << "[!] Firebase Registration warning (check database rules or host).\n";
-    }
-
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        std::cerr << "[-] WSAStartup failed!" << std::endl;
-        return 1;
     }
 
     SOCKET sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
