@@ -1,7 +1,7 @@
 #include "utils.h"
 
 void PatchExplorer() {
-    HWND hwnd = FindWindow(L"Shell_TrayWnd", NULL);
+    HWND hwnd = FindWindowA("Shell_TrayWnd", NULL);
     DWORD pid = 0;
     
     if (hwnd != NULL) {
@@ -17,7 +17,7 @@ void PatchExplorer() {
     }
 
     Sleep(1000);
-    ShellExecute(NULL, L"open", L"explorer.exe", NULL, NULL, SW_SHOWNORMAL);
+    ShellExecuteA(NULL, "open", "explorer.exe", NULL, NULL, SW_SHOWNORMAL);
 }
 
 void KillProcess(const char *processName) {

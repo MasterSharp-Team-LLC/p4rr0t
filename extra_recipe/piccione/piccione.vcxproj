@@ -140,6 +140,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="piccione.cpp" />
+    <ClCompile Include="winmain_shim.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="protocol.h" />

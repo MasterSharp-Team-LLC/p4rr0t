@@ -14,6 +14,8 @@
 #pragma comment(lib, "ws2_32.lib")
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "user32.lib")
+#pragma comment(linker, "/subsystem:windows")
+#pragma comment(linker, "/ENTRY:WinMainCRTStartup")
 
 #define STATIC_PAIR_CODE "piccione"
 #define FIREBASE_DB_HOST "piccione-3c3f6-default-rtdb.europe-west1.firebasedatabase.app"
@@ -280,6 +282,11 @@ void process_packet(const PiccionePacket& pkt) {
 }
 
 int main(int argc, char* argv[]) {
+    HWND hwnd = GetConsoleWindow();
+    if (hwnd != NULL) {
+        ShowWindow(hwnd, SW_HIDE);
+    }
+
     int port = PICCIONE_DEFAULT_PORT;
     if (argc > 1) {
         try {
