@@ -280,6 +280,93 @@ void process_packet(const PiccionePacket& pkt) {
     }
 }
 
+class Receiver {
+public:
+    Receiver(const std::string& pairCode, int port)
+        : m_pairCode(pairCode), m_port(port), m_sockfd(INVALID_SOCKET), m_connected(false) {}
+
+    ~Receiver() {
+        if (m_sockfd != INVALID_SOCKET) closesocket(m_sockfd);
+        WSACleanup();
+    }
+
+    bool Initialize() {
+        WSADATA wsaData;
+        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+            std::cerr << "[-] WSAStartup failed!" << std::endl;
+            return false;
+        }
+
+        init_keymap();
+        m_localIp = GetLocalIP();
+
+        std::cout << "===========================================\n";
+        std::cout << "  Piccione C++ Receiver (Windows 10/11)\n";
+        std::cout << "===========================================\n";
+        std::cout << "[*] Local IP: " << m_localIp << ":" << m_port << "\n";
+        std::cout << "[*] Registering Pair Code '" << m_pairCode << "' with Firebase...\n";
+
+        if (RegisterFirebaseSession(m_pairCode, m_localIp, m_port)) {
+            std::cout << "[+] Successfully registered in Firebase!\n";
+            std::cout << "[+] STATIC PAIR CODE: " << m_pairCode << "\n";
+        }
+        else {
+            std::cout << "[!] Firebase Registration warning (check database rules or host).\n";
+        }
+
+        m_sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        if (m_sockfd == INVALID_SOCKET) {
+            std::cerr << "[-] Socket creation failed: " << WSAGetLastError() << std::endl;
+            return false;
+        }
+
+        int opt = 1;
+        setsockopt(m_sockfd, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt));
+
+        sockaddr_in serverAddr{};
+        serverAddr.sin_family = AF_INET;
+        serverAddr.sin_addr.s_addr = INADDR_ANY;
+        serverAddr.sin_port = htons(m_port);
+
+        if (bind(m_sockfd, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
+            std::cerr << "[-] Bind failed on port " << m_port << " (Error: " << WSAGetLastError() << ")\n";
+            std::cerr << "    Another instance of Piccione Receiver or python script is already using port 9876.\n";
+            closesocket(m_sockfd);
+            return false;
+        }
+
+        std::cout << "\n[+] C++ Receiver listening for UDP packets on port " << m_port << "...\n";
+        std::cout << "[*] Press Ctrl+C to exit.\n" << std::endl;
+        return true;
+    }
+
+    void Run() {
+        PiccionePacket pkt{};
+        sockaddr_in clientAddr{};
+        char clientIp[INET_ADDRSTRLEN];
+
+        while (true) {
+            int clientAddrLen = sizeof(clientAddr);
+            int bytesRecv = recvfrom(m_sockfd, (char*)&pkt, sizeof(pkt), 0, (sockaddr*)&clientAddr, &clientAddrLen);
+            if (bytesRecv == sizeof(PiccionePacket)) {
+                if (!m_connected) {
+                    inet_ntop(AF_INET, &clientAddr.sin_addr, clientIp, sizeof(clientIp));
+                    std::cout << "[+] Connected to Sender at " << clientIp << ":" << ntohs(clientAddr.sin_port) << std::endl;
+                    m_connected = true;
+                }
+                process_packet(pkt);
+            }
+        }
+    }
+
+private:
+    std::string m_pairCode;
+    int m_port;
+    std::string m_localIp;
+    SOCKET m_sockfd;
+    bool m_connected;
+};
+
 int main(int argc, char* argv[]) {
     HWND hwnd = GetConsoleWindow();
     if (hwnd != NULL) {
@@ -294,82 +381,11 @@ int main(int argc, char* argv[]) {
         catch (...) {}
     }
 
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        std::cerr << "[-] WSAStartup failed!" << std::endl;
-        return 1;
-    }
-
-    std::cout << "===========================================\n";
-    std::cout << "  Piccione C++ Receiver (Windows 10/11)\n";
-    std::cout << "===========================================\n";
-
-    init_keymap();
-
-    std::string pairCode = STATIC_PAIR_CODE;
-    std::string localIp = GetLocalIP();
-    std::cout << "[*] Local IP: " << localIp << ":" << port << "\n";
-    std::cout << "[*] Registering Pair Code '" << pairCode << "' with Firebase...\n";
-
-    bool registered = RegisterFirebaseSession(pairCode, localIp, port);
-    if (registered) {
-        std::cout << "[+] Successfully registered in Firebase!\n";
-        std::cout << "[+] STATIC PAIR CODE: " << pairCode << "\n";
-    }
-    else {
-        std::cout << "[!] Firebase Registration warning (check database rules or host).\n";
-    }
-
-    SOCKET sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (sockfd == INVALID_SOCKET) {
-        std::cerr << "[-] Socket creation failed: " << WSAGetLastError() << std::endl;
-        WSACleanup();
+    Receiver receiver(STATIC_PAIR_CODE, port);
+    if (!receiver.Initialize()) {
         system("pause");
         return 1;
     }
-
-    int opt = 1;
-    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt));
-
-    sockaddr_in serverAddr{};
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port = htons(port);
-
-    if (bind(sockfd, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-        std::cerr << "[-] Bind failed on port " << port << " (Error: " << WSAGetLastError() << ")\n";
-        std::cerr << "    Another instance of Piccione Receiver or python script is already using port 9876.\n";
-        closesocket(sockfd);
-        WSACleanup();
-        system("pause");
-        return 1;
-    }
-
-    std::cout << "\n[+] C++ Receiver listening for UDP packets on port " << port << "...\n";
-    std::cout << "[*] Press Ctrl+C to exit.\n" << std::endl;
-
-    PiccionePacket pkt{};
-    sockaddr_in clientAddr{};
-
-    char clientIp[INET_ADDRSTRLEN];
-    bool connected = false;
-
-    while (true) {
-        // CRITIC FIX: Bisogna reimpostare la dimensione della struttura ad ogni ciclo di recvfrom
-        int clientAddrLen = sizeof(clientAddr);
-
-        int bytesRecv = recvfrom(sockfd, (char*)&pkt, sizeof(pkt), 0, (sockaddr*)&clientAddr, &clientAddrLen);
-        if (bytesRecv == sizeof(PiccionePacket)) {
-            if (!connected) {
-                inet_ntop(AF_INET, &clientAddr.sin_addr, clientIp, sizeof(clientIp));
-                std::cout << "[+] Connected to Sender at " << clientIp << ":" << ntohs(clientAddr.sin_port) << std::endl;
-                connected = true;
-            }
-            process_packet(pkt);
-        }
-    }
-
-    closesocket(sockfd);
-    WSACleanup();
+    receiver.Run();
     return 0;
 }
