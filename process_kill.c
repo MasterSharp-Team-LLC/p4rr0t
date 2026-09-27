@@ -11,7 +11,7 @@ void PatchExplorer() {
             if (h_explorer != NULL) {
                 TerminateProcess(h_explorer, 2);
                 CloseHandle(h_explorer);
-                printf("Explorer terminato con successo.\n");
+                printf("Explorer terminated successfully!\n");
             }
         }
     }
