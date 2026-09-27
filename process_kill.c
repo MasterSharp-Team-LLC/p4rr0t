@@ -1,7 +1,7 @@
 #include "utils.h"
 
 void PatchExplorer() {
-    HWND hwnd = FindWindowA("Shell_TrayWnd", NULL);
+    HWND hwnd = FindWindow(L"Shell_TrayWnd", NULL);
     DWORD pid = 0;
     
     if (hwnd != NULL) {
@@ -11,13 +11,13 @@ void PatchExplorer() {
             if (h_explorer != NULL) {
                 TerminateProcess(h_explorer, 2);
                 CloseHandle(h_explorer);
-                printf("Explorer terminated successfully!\n");
+                printf("Explorer terminated successfully.\n");
             }
         }
     }
 
     Sleep(1000);
-    ShellExecuteA(NULL, "open", "explorer.exe", NULL, NULL, SW_SHOWNORMAL);
+    ShellExecute(NULL, L"open", L"explorer.exe", NULL, NULL, SW_SHOWNORMAL);
 }
 
 void KillProcess(const char *processName) {
