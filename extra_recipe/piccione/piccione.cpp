@@ -318,8 +318,12 @@ int main(int argc, char* argv[]) {
     if (sockfd == INVALID_SOCKET) {
         std::cerr << "[-] Socket creation failed: " << WSAGetLastError() << std::endl;
         WSACleanup();
+        system("pause");
         return 1;
     }
+
+    int opt = 1;
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt));
 
     sockaddr_in serverAddr{};
     serverAddr.sin_family = AF_INET;
@@ -327,9 +331,11 @@ int main(int argc, char* argv[]) {
     serverAddr.sin_port = htons(port);
 
     if (bind(sockfd, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-        std::cerr << "[-] Bind failed: " << WSAGetLastError() << std::endl;
+        std::cerr << "[-] Bind failed on port " << port << " (Error: " << WSAGetLastError() << ")\n";
+        std::cerr << "    Another instance of Piccione Receiver or python script is already using port 9876.\n";
         closesocket(sockfd);
         WSACleanup();
+        system("pause");
         return 1;
     }
 
