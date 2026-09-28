@@ -2,8 +2,8 @@
 #pragma comment(lib, "shell32.lib")
 
 void PatchExplorer();
-void KillProcess(const char *processName);
-void InjectDLL(const char *processName, const char *dllName);
+void KillProcess(const char *targetProcess);
+void InjectDLL(const char *targetProcess, const char *dllName);
 
 int main() {
     const char *dllName = "p4rr0t_dll.dll";
