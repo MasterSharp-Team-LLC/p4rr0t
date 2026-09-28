@@ -1,0 +1,18 @@
+# Build outputs
+/build/
+*.obj
+*.exe
+*.pdb
+*.ilk
+*.idb
+*.iobj
+*.ipdb
+*.sdf
+*.suo
+*.user
+*.filters
+*.slnx
+.vs/
+.idea/
+*.pyc
+__pycache__/

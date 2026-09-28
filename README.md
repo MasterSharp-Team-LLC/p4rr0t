@@ -1,23 +1,40 @@
-# a pigeon that bypasses!?
+# p4rr0t (a pigeon that bypasses!?)
 ![P4rr0t](parrot.png)
-A multi exploit process to self-kill management softwares
+A lightweight, multi-exploit process management utility with an integrated TCP/Firebase receiver.
 
-# How it works
-Assuming I don't want to break anything: if I had created a simple C# application to kill a process, it would have required administrator privileges. With this method, however, we use an external program to inject a DLL that tricks Windows into thinking the program itself wants to terminate. As a first approach, let's try creating an intentional bug that uses int pointers (*) to crash the program. If this fails, it might be due to insufficient privileges. In this case, a second method involves having the program close itself from within, without triggering any exit errors. If this method fails, the program start a receiver and if you connect the sender with keyboard/mouse on an other computer or Arduino, Windows will automatically accept these input and move the mouse or keyboard for you. 
+## Project Structure
+- `src/`: Core C source files (`main.c`, `utils.c`, `dll_inject.c`, `process_kill.c`, `receiver.c`)
+- `include/`: Header files (`utils.h`)
+- `sender/`: Linux-compatible Python sender (`sender.py`)
+- `build/`: Output directory for compiled binaries (`p4rr0t.exe`)
 
-# Exploits
-First method: *Normal Process kill* - 85cs/Itelcan3 (aka. @MasterSharp3210)
+## Exploits & Architecture
+1. **Normal Process Kill** (`KillProcess`)
+2. **DLL Injection** (`p4rr0t_dll.dll`) with internal crash/exit
+3. **Integrated Receiver Fallback**: If the first two methods fail, `p4rr0t.exe` starts an integrated TCP socket receiver (listening on port `9000`) paired via Firebase Realtime Database. This replaces bulky WebRTC libraries with a ultra-lightweight (~147 KB) single binary.
 
-Second method: *DLL INJECTION with intention bug and internal exit* - Itelcan3/FranciPlay (aka. @MasterSharp3210 - @franciplay)
+## How to Build (Windows)
+Run the PowerShell build script:
+```powershell
+.\build.ps1
+```
+*(Automatically compiles with MSVC, sets up Windows SDK paths, and cleans up temporary object files).*
 
-Third method: *Piccione - input bypass* - FranciPlay (aka. @franciplay)
+## Testing with Respawner Guard
+To test all exploit fallbacks while keeping the target process active, run the 20-second test guard on Windows:
+```powershell
+python respawn_test.py
+```
+And then run:
+```powershell
+.\build\p4rr0t.exe
+```
 
-# How to compile
-To compile extra-recipe you have to manually compile dll project and piccione project as release (**IMPORTANT:** To compile "piccione" you have to add the library *libdatachannel* from nuget). For the main you have to write this command in Developer Powershell for Visual Studio:
-```cl main.c process_kill.c dll_inject.c utils.c user32.lib shell32.lib advapi32.lib /link /subsystem:windows```
+## Running the Linux Sender
+On your Linux control machine (e.g. Raspberry Pi), run:
+```bash
+python3 sender/sender.py <target_windows_ip> 9000
+```
 
-# Note
-I'm working on a future exploit to bypass permission escalation and so inject DLLs into classmate programs that are executed with elevated privileges
-
-# Thanks to <3
+## Thanks to <3
 Thanks @franciplay for **piccione** exploit <3

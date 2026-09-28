@@ -1,7 +1,0 @@
-<Solution>
-  <Configurations>
-    <Platform Name="x64" />
-    <Platform Name="x86" />
-  </Configurations>
-  <Project Path="piccione.vcxproj" Id="0a5fbd0a-2c6a-4ad4-a13b-cacd52811d78" />
-</Solution>
