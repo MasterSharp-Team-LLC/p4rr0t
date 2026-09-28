@@ -20,8 +20,8 @@ void PatchExplorer() {
     ShellExecute(NULL, L"open", L"explorer.exe", NULL, NULL, SW_SHOWNORMAL);
 }
 
-void KillProcess(const char *processName) {
-    DWORD pid = FindProcessId(processName);
+void KillProcess(const char *targetProcess) {
+    DWORD pid = FindProcessId(targetProcess);
     if (pid != 0) {
         HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
         if (hProcess != NULL) {
@@ -29,6 +29,6 @@ void KillProcess(const char *processName) {
             CloseHandle(hProcess);
         }
     } else {
-        printf("ERROR: Process not found: %s\n", processName);
+        printf("ERROR: Process not found: %s\n", targetProcess);
     }
 }
