@@ -7,9 +7,9 @@ void InjectDLL(const char *processName, const char *dllName);
 
 int main() {
     const char *dllName = "p4rr0t_dll.dll";
-    const char *targetProcess = "notepad.exe"; // Default target
+    const char *targetProcess = "student.exe"; // Default target
 
-    printf("p4rr0t by 85cs - Exploit by Itelcan3 (aka. @MasterSharp3210)\n");
+    printf("p4rr0t by 85cs - Exploit by Itelcan3 and franciplay(aka. @MasterSharp3210, @franciplay)\n");
     InjectDLL(targetProcess, dllName);
     printf("\nTARGET: %s\n", targetProcess);
     printf("DLL: %s\n", dllName);
