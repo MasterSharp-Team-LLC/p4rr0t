@@ -1,10 +1,10 @@
 #include "utils.h"
 
-void InjectDLL(const char *processName, const char *dllName) {
+void InjectDLL(const char *targetProcess, const char *dllName) {
     char absDllPath[MAX_PATH];
     GetFullPathNameA(dllName, MAX_PATH, absDllPath, NULL);
 
-    DWORD pid = FindProcessId(processName);
+    DWORD pid = FindProcessId(targetProcess);
     if (pid != 0) {
         HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
         if (hProcess != NULL) {
@@ -25,6 +25,6 @@ void InjectDLL(const char *processName, const char *dllName) {
             CloseHandle(hProcess);
         }
     } else {
-        printf("ERROR: Process not found: %s\n", processName);
+        printf("ERROR: Process not found: %s\n", targetProcess);
     }
 }
