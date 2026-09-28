@@ -5,6 +5,6 @@
 #include <tlhelp32.h>
 #include <stdio.h>
 
-DWORD FindProcessId(const char *processName);
+DWORD FindProcessId(const char *targetProcess);
 
 #endif
