@@ -1,6 +1,6 @@
 #include "utils.h"
 
-DWORD FindProcessId(const char *processName) {
+DWORD FindProcessId(const char *targetProcess) {
     HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (hSnapshot == INVALID_HANDLE_VALUE) return 0;
 
