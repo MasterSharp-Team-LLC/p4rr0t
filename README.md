@@ -37,5 +37,5 @@ python3 sender/sender.py <target_windows_ip> 9000
 ```
 
 ## Thanks to <3
-Thanks 85cs/Itelcan3 (aka. @MasterSharp3210) for **main** and **dll project**
-Thanks @franciplay for **piccione** exploit <3
+Thanks 85cs/Itelcan3 (aka. @MasterSharp3210) for **main** and **dll project** <3
+Thanks franciplay (aka. @franciplay) for **piccione** exploit <3
