@@ -10,7 +10,7 @@
 #pragma comment(lib, "wininet.lib")
 
 #define FIREBASE_HOST "piccione-3c3f6-default-rtdb.europe-west1.firebasedatabase.app"
-#define PICCIONE_MAGIC 0x50494343 // "PICC"
+#define PICCIONE_MAGIC 0x50494343 
 
 #pragma pack(push, 1)
 typedef struct {

@@ -1,4 +1,4 @@
-#include "../include/utils.h"
+#include "utils.h"
 
 void InjectDLL(const char *targetProcess, const char *dllName) {
     char absDllPath[MAX_PATH];

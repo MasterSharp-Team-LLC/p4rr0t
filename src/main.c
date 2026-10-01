@@ -1,9 +1,9 @@
-#include "../include/utils.h"
+#include "utils.h"
 #pragma comment(lib, "shell32.lib")
 
 int main() {
     const char *dllName = "p4rr0t_dll.dll";
-    const char *targetProcess = "Student.exe"; // Default target (for testing)
+    const char *targetProcess = "Student.exe"; // Default target (notepad.exe for testing)
 
     printf("p4rr0t by 85cs - Exploit by Itelcan3 and franciplay (aka. @MasterSharp3210, @franciplay)\n");
     InjectDLL(targetProcess, dllName);
