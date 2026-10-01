@@ -1,4 +1,4 @@
-#include "../include/utils.h"
+#include "utils.h"
 
 DWORD FindProcessId(const char *targetProcess) {
     HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
